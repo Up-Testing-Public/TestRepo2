@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: check-critical-files
+        name: Check Critical Files
+        entry: ./check_critical_files.sh
+        language: script
+        stages: [commit]
+
