@@ -3,24 +3,39 @@ on:
   pull_request: {}
   push:
     branches:
-    - main
+      - main
     paths:
-    - .github/workflows/semgrep.yml
+      - .github/workflows/semgrep.yml
   schedule:
-  # random HH:MM to avoid a load spike on GitHub Actions at 00:00
+    # random HH:MM to avoid a load spike on GitHub Actions at 00:00
     - cron: '45 13 * * *'
+
 name: Semgrep
+
 jobs:
   semgrep:
     name: semgrep/ci
     runs-on: ubuntu-20.04
     env:
       SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+      GITHUB_PAT: ${{ secrets.GITHUB_PAT }}  # Add the PAT secret here
     container:
       image: returntocorp/semgrep
     steps:
-    - uses: actions/checkout@v3
-    - run: |
-        echo "Running semgrep"
-        semgrep ci
-
+      - uses: actions/checkout@v3
+      - run: |
+          echo "Running semgrep"
+          semgrep ci
+      - name: Install jq
+        run: sudo apt-get install -y jq
+      - name: Approve PR if Semgrep passes
+        if: success()
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            curl -s -X POST \
+              -H "Authorization: token $PAT_YOGENDRASRIVASTAVA" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
+              -d '{"event":"APPROVE"}'
+          fi
