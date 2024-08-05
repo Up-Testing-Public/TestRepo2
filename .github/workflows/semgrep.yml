@@ -23,10 +23,6 @@ jobs:
       image: returntocorp/semgrep
     steps:
       - uses: actions/checkout@v3
-      - name: Install jq
-        run: |
-          apt-get update
-          apt-get install -y jq
       - run: |
           echo "Running semgrep"
           semgrep ci
@@ -35,9 +31,24 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             PR_NUMBER=${{ github.event.pull_request.number }}
-            curl -s -X POST \
-              -H "Authorization: token $PAT_YOGENDRASRIVASTAVA" \
-              -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews \
-              -d '{"event":"APPROVE"}'
-          fi
+            PR_REPO=${{ github.repository }}
+            GITHUB_API_URL="https://api.github.com/repos/${PR_REPO}/pulls/${PR_NUMBER}/reviews"
+            REVIEW_PAYLOAD=$(echo '{"event":"APPROVE"}')
+            
+            python3 -c "
+import requests
+import os
+
+url = os.environ['GITHUB_API_URL']
+token = os.environ['PAT_YOGENDRASRIVASTAVA']
+payload = os.environ['REVIEW_PAYLOAD']
+
+headers = {
+    'Authorization': f'token {token}',
+    'Accept': 'application/vnd.github.v3+json'
+}
+
+response = requests.post(url, headers=headers, data=payload)
+response.raise_for_status()
+print('Pull request approved.' if response.status_code == 200 else 'Failed to approve pull request.')
+"
