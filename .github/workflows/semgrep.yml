@@ -26,29 +26,33 @@ jobs:
       - run: |
           echo "Running semgrep"
           semgrep ci
+      - name: Setup Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.x'
       - name: Approve PR if Semgrep passes
         if: success()
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            PR_NUMBER=${{ github.event.pull_request.number }}
-            PR_REPO=${{ github.repository }}
-            GITHUB_API_URL="https://api.github.com/repos/${PR_REPO}/pulls/${PR_NUMBER}/reviews"
-            REVIEW_PAYLOAD=$(echo '{"event":"APPROVE"}')
-            
-            python3 -c "
+          echo "Approving PR if Semgrep passes"
+          python - <<EOF
 import requests
 import os
 
-url = os.environ['GITHUB_API_URL']
-token = os.environ['PAT_YOGENDRASRIVASTAVA']
-payload = os.environ['REVIEW_PAYLOAD']
+pr_number = os.environ.get('PR_NUMBER')
+pr_repo = os.environ.get('PR_REPO')
+github_api_url = f"https://api.github.com/repos/{pr_repo}/pulls/{pr_number}/reviews"
+token = os.environ.get('PAT_YOGENDRASRIVASTAVA')
+payload = {"event": "APPROVE"}
 
 headers = {
     'Authorization': f'token {token}',
     'Accept': 'application/vnd.github.v3+json'
 }
 
-response = requests.post(url, headers=headers, data=payload)
+response = requests.post(github_api_url, headers=headers, json=payload)
 response.raise_for_status()
 print('Pull request approved.' if response.status_code == 200 else 'Failed to approve pull request.')
-"
+EOF
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_REPO: ${{ github.repository }}
