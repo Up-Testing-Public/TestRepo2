@@ -18,7 +18,6 @@ jobs:
     runs-on: ubuntu-20.04
     env:
       SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-      GITHUB_PAT: ${{ secrets.PAT_YOGENDRASRIVASTAVA }}  # Add the PAT secret here
     container:
       image: returntocorp/semgrep
     steps:
@@ -26,33 +25,16 @@ jobs:
       - run: |
           echo "Running semgrep"
           semgrep ci
-      - name: Setup Python
-        uses: actions/setup-python@v3
-        with:
-          python-version: '3.x'
-      - name: Approve PR if Semgrep passes
+
+  approve:
+    name: Approve PR if Semgrep passes
+    runs-on: ubuntu-20.04
+    needs: semgrep
+    steps:
+      - name: Setup GitHub CLI
+        uses: actions/checkout@v3
+      - name: Approve PR
         if: success()
-        run: |
-          echo "Approving PR if Semgrep passes"
-          python - <<EOF
-import requests
-import os
-
-pr_number = os.environ.get('PR_NUMBER')
-pr_repo = os.environ.get('PR_REPO')
-github_api_url = f"https://api.github.com/repos/{pr_repo}/pulls/{pr_number}/reviews"
-token = os.environ.get('PAT_YOGENDRASRIVASTAVA')
-payload = {"event": "APPROVE"}
-
-headers = {
-    'Authorization': f'token {token}',
-    'Accept': 'application/vnd.github.v3+json'
-}
-
-response = requests.post(github_api_url, headers=headers, json=payload)
-response.raise_for_status()
-print('Pull request approved.' if response.status_code == 200 else 'Failed to approve pull request.')
-EOF
+        run: gh pr review --approve "${{ github.event.pull_request.html_url }}"
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_REPO: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.PAT_YOGENDRASRIVASTAVA }}
